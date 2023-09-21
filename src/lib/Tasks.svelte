@@ -2,6 +2,8 @@
   import { emit, listen } from "@tauri-apps/api/event";
   import { invoke } from "@tauri-apps/api/tauri";
 
+  import jQuery from "jquery";
+
   let tasks: any[] = [];
 
   getTasks();
@@ -28,28 +30,72 @@
   const updateActive = listen("active_update", (event) => {
     getTasks();
   });
+
+  function showRenameTask(id: any) {
+    jQuery(`.taskForm p.${id}`).addClass("hidden");
+    jQuery(`.taskForm input.${id}[type=text]`)
+      .removeClass("hidden")
+      .trigger("focus")
+      .on("focusout", function () {
+        hideRenameTask(id);
+      });
+  }
+
+  function toggleRenameTask(id: any) {
+    if (jQuery(`.taskForm p.${id}`).hasClass("hidden")) {
+      hideRenameTask(id);
+    } else {
+      showRenameTask(id);
+    }
+  }
+
+  function hideRenameTask(id: any) {
+    jQuery(`.taskForm p.${id}`).removeClass("hidden");
+    jQuery(`.taskForm input.${id}[type=text]`)
+      .addClass("hidden")
+      .off("focusout");
+  }
+
+  async function renameTask(event: any, ids: string) {
+    let name: string = event.target.elements["name"].value;
+    await invoke("rename_task", { ids, name });
+    hideRenameTask(ids);
+  }
 </script>
 
 <div>
-  <div id="title">
-    <h3 style="flex: 1 0 max-content">Task Name</h3>
-    <h3 style="flex: 0 0 5rem; margin-right: 2rem">Done</h3>
-    <h3 style="flex: 0 0 5rem">Delete</h3>
-  </div>
-  <div>
-    {#each tasks as task, idx}
-      <label for={task.name}>{task.name}</label>
+  <form class="taskForm">
+    {#each tasks as task}
+      <form
+        on:submit|preventDefault={(event) =>
+          renameTask(event, task.id.toString())}
+      >
+        <p class={task.id}>{task.name}</p>
+        <input
+          class="{task.id} hidden"
+          type="text"
+          placeholder={task.name}
+          name="name"
+        />
+        <input type="submit" hidden />
+      </form>
       <input
         name={task.name}
         bind:checked={task.done}
-        on:change={(event) => toggleTask(event, idx.toString())}
+        on:change={(event) => toggleTask(event, task.id.toString())}
         type="checkbox"
       />
-      <button on:click={() => deleteTask(idx.toString())}
+      <button
+        class={task.id}
+        on:click|stopPropagation|preventDefault={() =>
+          toggleRenameTask(task.id.toString())}
+        ><i class="fa-solid fa-pen" /></button
+      >
+      <button on:click={() => deleteTask(task.id.toString())}
         ><i class="fa-solid fa-trash-can" /></button
       >
     {/each}
-  </div>
+  </form>
 </div>
 
 <style>
@@ -62,17 +108,12 @@
     padding-bottom: 1.5rem;
   }
 
-  #title {
-    width: 100%;
-    display: flex;
-    height: 3rem;
-    overflow: hidden;
-    justify-content: left;
-    flex-direction: row;
-    flex: 0 0 3rem;
+  .hidden {
+    visibility: hidden;
+    display: none;
   }
 
-  div div {
+  .taskForm {
     overflow-x: hidden;
     overflow-y: scroll;
     display: grid;
@@ -81,7 +122,7 @@
     background-color: var(--background);
     margin: 0;
     align-items: center;
-    grid-template-columns: 1fr 5.8rem 4.5rem;
+    grid-template-columns: 1fr 2rem 2rem 2rem;
     gap: 10px;
     grid-template-rows: 3rem repeat(auto-fit, 5rem);
     padding: 1rem;
@@ -92,10 +133,6 @@
       "main main main";
   }
 
-  h3 {
-    font-weight: normal;
-  }
-
   input[type="checkbox"] {
     width: 1.25rem;
     height: 5rem;
@@ -104,7 +141,22 @@
     color: #ffeeee;
   }
 
+  input[type="text"] {
+    width: 100%;
+  }
+
   button {
-    background-color: var(--button);
+    margin-right: 1rem;
+    padding: 5px;
+    width: max-content;
+    height: max-content;
+    border: 0;
+    box-shadow: none;
+    background-color: unset;
+  }
+
+  button:hover {
+    color: var(--text-hover);
+    border: 0;
   }
 </style>

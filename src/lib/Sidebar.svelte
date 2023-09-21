@@ -2,6 +2,8 @@
   import { emit, listen } from "@tauri-apps/api/event";
   import { invoke } from "@tauri-apps/api/tauri";
 
+  import jQuery from "jquery";
+
   let name = "";
   $: active = 0;
   let projects: any[] = [];
@@ -16,7 +18,6 @@
   });
 
   async function deleteProject(ids: string) {
-    console.log(ids);
     await invoke("delete_project", { ids });
   }
 
@@ -38,12 +39,13 @@
 
   getActive();
   async function getActive() {
-    active = await invoke("get_projects_active");
+    active = await invoke("get_active_cmd");
     console.log(active);
   }
 
   async function setActive(ids: any) {
     await invoke("set_projects_active", { ids });
+    console.log(ids);
   }
 
   const updateActive = listen("active_update", (event) => {
@@ -53,6 +55,39 @@
 
   function isActive(idx: any) {
     return idx == active;
+  }
+
+  function toggleRenameProject(id: any) {
+    if (
+      jQuery(`.projForm p.${id}, .projForm button.${id}`).hasClass("hidden")
+    ) {
+      hideRenameProject(id);
+    } else {
+      showRenameProject(id);
+    }
+  }
+
+  function showRenameProject(id: any) {
+    jQuery(`.projForm p.${id}, .projForm button.${id}`).addClass("hidden");
+    jQuery(`.projForm input.${id}[type=text]`)
+      .removeClass("hidden")
+      .trigger("focus")
+      .on("focusout", function () {
+        hideRenameProject(id);
+      });
+  }
+
+  function hideRenameProject(id: any) {
+    jQuery(`.projForm p.${id}, .projForm button.${id}`).removeClass("hidden");
+    jQuery(`.projForm input.${id}[type=text]`)
+      .addClass("hidden")
+      .off("focusout");
+  }
+
+  async function renameProject(event: any, ids: string) {
+    let name: string = event.target.elements["name"].value;
+    await invoke("rename_project", { ids, name });
+    hideRenameProject(ids);
   }
 </script>
 
@@ -65,30 +100,51 @@
   </div>
   <hr />
   {#key active}
-    <div id="projHolder">
-      {#each projects as project, idx}
-        <!-- svelte-ignore missing-declaration -->
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div
-          class:active={idx == active}
-          on:click={() => setActive(idx.toString())}
-        >
-          <p>{project.name}</p>
-          <button on:click={() => deleteProject(idx.toString())}
-            ><i class="fa-solid fa-trash-can" /></button
+    {#key projects}
+      <div id="projHolder">
+        {#each projects as project}
+          <!-- svelte-ignore missing-declaration -->
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+          <form
+            class="projForm"
+            class:active={project.id == active}
+            on:click={() => setActive(project.id.toString())}
+            on:submit|preventDefault={(event) =>
+              renameProject(event, project.id.toString())}
           >
-        </div>
-      {/each}
-      <form id="newProj" class="hidden" on:submit|preventDefault={newProject}>
-        <input
-          id="newProjInpt"
-          placeholder="New Project..."
-          bind:value={name}
-        />
-        <input type="submit" hidden />
-      </form>
-    </div>
+            <p class={project.id}>{project.name}</p>
+            <input
+              class="{project.id} hidden"
+              type="text"
+              placeholder={project.name}
+              name="name"
+            />
+            <input type="submit" hidden />
+            <button
+              class={project.id}
+              on:click|stopPropagation|preventDefault={() =>
+                showRenameProject(project.id.toString())}
+              ><i class="fa-solid fa-pen" /></button
+            >
+            <button
+              on:click|stopPropagation={() =>
+                deleteProject(project.id.toString())}
+              ><i class="fa-solid fa-trash-can" /></button
+            >
+          </form>
+        {/each}
+        <form id="newProj" class="hidden" on:submit|preventDefault={newProject}>
+          <input
+            id="newProjInpt"
+            placeholder="New Project..."
+            bind:value={name}
+          />
+          <input type="submit" hidden />
+        </form>
+      </div>
+    {/key}
   {/key}
 </nav>
 
@@ -112,23 +168,35 @@
     flex-direction: column;
     overflow-x: hidden;
     overflow-y: auto;
+    max-width: 100%;
   }
 
-  nav div div,
+  #projHolder input[type="text"] {
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    max-width: calc(100% - 1rem);
+  }
+
+  .projForm,
   nav div form {
     width: 100%;
+    max-width: 100%;
     height: 3rem;
-    padding-left: 1rem;
     display: flex;
     align-items: center;
   }
 
   .hidden {
     visibility: hidden;
+    display: none;
   }
 
   input {
     max-width: calc(100% - 1rem);
+    flex: 1 1 auto;
   }
 
   h5 {
@@ -138,8 +206,9 @@
     flex: 1 0 max-content;
   }
 
-  div div p {
+  .projForm p {
     flex: 1 0 max-content;
+    padding-left: 1rem;
   }
 
   div button {
@@ -161,7 +230,7 @@
     border: 0;
   }
 
-  div div:hover,
+  .projForm:hover,
   .active {
     background-color: var(--background);
   }
