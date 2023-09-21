@@ -1,8 +1,6 @@
-use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use tauri::State;
 
-use super::types::*;
 use thiserror;
 
 // create the error type that represents all errors possible in our program
@@ -12,9 +10,6 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Rusqlite(#[from] rusqlite::Error),
-
-    #[error("{0}")]
-    Other(String),
 }
 
 // we must manually implement serde::Serialize
@@ -27,7 +22,7 @@ impl serde::Serialize for Error {
     }
 }
 
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result};
 
 pub fn get_active(conn: &State<Mutex<Connection>>) -> Result<usize, Error> {
     let db = conn.lock().unwrap();

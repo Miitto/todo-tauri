@@ -2,8 +2,7 @@ use super::types::*;
 use super::util::*;
 
 use rusqlite::Connection;
-use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use tauri::State;
 
 pub fn get_tasks(conn: &State<Mutex<Connection>>) -> Result<Vec<Task>, Error> {

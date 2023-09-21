@@ -1,6 +1,5 @@
 use rusqlite::Connection;
-use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use tauri::State;
 
 use super::types::*;
@@ -38,7 +37,7 @@ pub fn set_projects_active(
     window: tauri::Window,
 ) -> Result<usize, Error> {
     let id = ids.parse::<usize>().unwrap();
-    let active = get_active(&conn)?;
+    get_active(&conn)?;
     let db = conn.lock().unwrap();
     db.execute("UPDATE active SET project = ?1", (id,))
         .expect("Update Active Failed");
